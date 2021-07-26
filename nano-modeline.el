@@ -189,6 +189,26 @@ This is useful (aesthetically) if the face of prefix uses a different background
   "Modeline face for active MODIFIED element"
   :group 'nano-modeline-active)
 
+(defface nano-modeline-active-flycheck-passed
+  '((t (:inherit nano-faded-i)))
+  "Modeline face for active flycheck passed element"
+  :group 'nano-modeline-active)
+
+(defface nano-modeline-active-flycheck-checking
+  '((t (:inherit nano-faded-i)))
+  "Modeline face for active flycheck checking element"
+  :group 'nano-modeline-active)
+
+(defface nano-modeline-active-flycheck-warning
+  '((t (:inherit nano-popout)))
+  "Modeline face for active flycheck warning element"
+  :group 'nano-modeline-active)
+
+(defface nano-modeline-active-flycheck-error
+  '((t (:inherit nano-critical)))
+  "Modeline face for active flycheck error element"
+  :group 'nano-modeline-active)
+
 (defface nano-modeline-inactive
   '((t (:inherit (mode-line-inactive font-lock-comment-face))))
   "Modeline face for inactive window"
@@ -384,6 +404,28 @@ KEY mode name, for reference only. Easier to do lookups and/or replacements.
 
 (defun nano-modeline-vc-branch ()
   "Return current VC branch if any."
+
+(defface nano-modeline-inactive-flycheck-passed
+  '((t (:inherit (nano-faded nano-modeline-inactive))))
+  "Modeline face for inactive flycheck passed element"
+  :group 'nano-modeline-inactive)
+
+(defface nano-modeline-inactive-flycheck-checking
+  '((t (:inherit (nano-faded nano-modeline-inactive))))
+  "Modeline face for inactive flycheck checking element"
+  :group 'nano-modeline-inactive)
+
+(defface nano-modeline-inactive-flycheck-warning
+  '((t (:inherit (nano-popout nano-modeline-inactive))))
+  "Modeline face for inactive flycheck warning element"
+  :group 'nano-modeline-inactive)
+
+(defface nano-modeline-inactive-flycheck-error
+  '((t (:inherit (nano-critical-i nano-modeline-inactive))))
+  "Modeline face for inactive flycheck error element"
+  :group 'nano-modeline-inactive)
+
+(defun vc-branch ()
   (if vc-mode
       (let ((backend (vc-backend buffer-file-name)))
         (concat "#" (substring-no-properties vc-mode
@@ -1037,6 +1079,53 @@ depending on the version of mu4e."
   (nano-modeline-default-mode
    (plist-get (cdr (assoc 'text-mode nano-modeline-mode-formats)) :icon)))
 
+(defvar flycheck-current-errors)
+(defvar-local nano-modeline-flycheck-text nil)
+(with-eval-after-load 'flycheck
+  (defun nano-modeline-update-flycheck (&optional status)
+    "Update `nano-modeline-flycheck-text' against the reported flycheck STATUS."
+    (setq nano-modeline-flycheck-text
+	  (pcase status
+	    ('finished (if flycheck-current-errors
+			   (let-alist (flycheck-count-errors flycheck-current-errors)
+			     (let ((sum (+ (or .error 0) (or .warning 0))))
+			       (propertize (concat "⚑ " (number-to-string sum))
+					   'face (if .error
+						     'nano-modeline-active-flycheck-error
+						   'nano-modeline-active-flycheck-warning))))
+			 (propertize "✔" 'face  'nano-modeline-active-flycheck-passed)))
+	    ('running (propertize "Δ Checking" 'face 'nano-modeline-active-flycheck-checking))
+	    ('errored (propertize "✖ Error" 'face 'nano-modeline-active-flycheck-error))
+	    ('interrupted (propertize "ǁ Paused" 'face 'nano-modeline-active-flycheck-checking))
+	    ('no-checker "")))))
+
+(defun nano-modeline-prog-mode ()
+  (let ((buffer-name (format-mode-line "%b"))
+	(mode-name   (nano-mode-name))
+	(branch      (vc-branch))
+	(flycheck    nano-modeline-flycheck-text)
+	(position    (format-mode-line "%l:%c")))
+    (nano-modeline-compose (nano-modeline-status)
+			   buffer-name
+			   (concat "(" mode-name
+				   (if branch (concat ", "
+						      (propertize branch 'face 'italic)))
+				   ")" )
+			   (concat (if flycheck (concat flycheck " | ")) position))))
+
+(defun nano-modeline-default-mode ()
+    (let ((buffer-name (format-mode-line "%b"))
+          (mode-name   (nano-mode-name))
+          (branch      (vc-branch))
+          (position    (format-mode-line "%l:%c")))
+      (nano-modeline-compose (nano-modeline-status)
+                             buffer-name
+                             (concat "(" mode-name
+                                     (if branch (concat ", "
+                                            (propertize branch 'face 'italic)))
+                                     ")" )
+                             position)))
+
 (defun nano-modeline-default-mode (&optional icon)
   (let ((icon (or icon
                   (plist-get (cdr (assoc 'text-mode nano-modeline-mode-formats)) :icon)))
@@ -1149,6 +1238,35 @@ below or a buffer local variable 'no-mode-line'."
 
   (nano-modeline)
 
+  (let ((format
+     '((:eval
+	(cond
+	 ((nano-modeline-prog-mode-p)            (nano-modeline-prog-mode))
+	 ((nano-modeline-message-mode-p)         (nano-modeline-message-mode))
+	 ((nano-modeline-elfeed-search-mode-p)   (nano-modeline-elfeed-search-mode))
+	 ((nano-modeline-elfeed-show-mode-p)     (nano-modeline-elfeed-show-mode))
+	 ((nano-modeline-deft-mode-p)            (nano-modeline-deft-mode))
+	 ((nano-modeline-info-mode-p)            (nano-modeline-info-mode))
+	 ((nano-modeline-calendar-mode-p)        (nano-modeline-calendar-mode))
+	 ((nano-modeline-org-capture-mode-p)     (nano-modeline-org-capture-mode))
+	 ((nano-modeline-org-agenda-mode-p)      (nano-modeline-org-agenda-mode))
+	 ((nano-modeline-org-clock-mode-p)       (nano-modeline-org-clock-mode))
+	 ((nano-modeline-term-mode-p)            (nano-modeline-term-mode))
+	 ((nano-modeline-vterm-mode-p)           (nano-modeline-term-mode))
+	 ((nano-modeline-mu4e-dashboard-mode-p)  (nano-modeline-mu4e-dashboard-mode))
+	 ((nano-modeline-mu4e-main-mode-p)       (nano-modeline-mu4e-main-mode))
+	 ((nano-modeline-mu4e-headers-mode-p)    (nano-modeline-mu4e-headers-mode))
+	 ;; ((nano-modeline-mu4e-view-mode-p)       (nano-modeline-mu4e-view-mode))
+	 ((nano-modeline-text-mode-p)            (nano-modeline-default-mode))
+	 ((nano-modeline-pdf-view-mode-p)        (nano-modeline-pdf-view-mode))
+	 ((nano-modeline-docview-mode-p)         (nano-modeline-docview-mode))
+	 ((nano-modeline-completion-list-mode-p) (nano-modeline-completion-list-mode))
+	 ((nano-modeline-nano-help-mode-p)       (nano-modeline-nano-help-mode))
+	 (t                                      (nano-modeline-default-mode)))))))
+    (if (eq nano-modeline-position 'top)
+	(setq-default header-line-format format)
+      (setq-default mode-line-format format))))
+
   ;; This hooks is necessary to register selected window because when
   ;;  a modeline is evaluated, the corresponding window is always selected.
   (add-hook 'post-command-hook #'nano-modeline--update-selected-window)
@@ -1201,6 +1319,9 @@ below or a buffer local variable 'no-mode-line'."
   ;; Run any registered hooks
   (run-hooks 'nano-modeline-mode-hook))
 
+
+(add-hook 'flycheck-status-changed-functions #'nano-modeline-update-flycheck)
+(add-hook 'flycheck-mode-hook #'nano-modeline-update-flycheck)
 
 (provide 'nano-modeline)
 ;;; nano-modeline.el ends here
