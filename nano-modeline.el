@@ -1022,6 +1022,28 @@ depending on the version of mu4e."
                    (format "%d notes" (length deft-all-files)))))
     (nano-modeline-render icon "Search:" filter matches 'read-only)))
 
+    (nano-modeline-compose " DEFT "
+                           primary filter matches)))
+    
+;; ---------------------------------------------------------------------
+(with-eval-after-load 'neotree
+ (defun nano-modeline-neotree-mode ()
+  (nano-modeline-compose (if (fboundp 'all-the-icons-faicon)
+                             (concat " " (all-the-icons-faicon
+                              "book"
+                              :height 5
+                              :face 'nano-face-header-faded
+                              :v-adjust -0.1) " ")
+                           "")
+                         (if (fboundp 'projectile-default-project-name)
+                             (projectile-project-name)
+                           (shorten-directory default-directory ((window-width) -5)))
+                         ""
+                         "")))
+
+(defun nano-modeline-neotree-mode-p ()
+  (derived-mode-p 'neotree-mode))
+
 ;; ---------------------------------------------------------------------
 (defun nano-modeline-prog-mode-p ()
   (derived-mode-p 'prog-mode))
@@ -1149,6 +1171,36 @@ below or a buffer local variable 'no-mode-line'."
 
   (nano-modeline)
 
+  (let ((format
+     '((:eval
+	(cond
+	 ((nano-modeline-prog-mode-p)            (nano-modeline-default-mode))
+	 ((nano-modeline-message-mode-p)         (nano-modeline-message-mode))
+	 ((nano-modeline-elfeed-search-mode-p)   (nano-modeline-elfeed-search-mode))
+	 ((nano-modeline-elfeed-show-mode-p)     (nano-modeline-elfeed-show-mode))
+	 ((nano-modeline-deft-mode-p)            (nano-modeline-deft-mode))
+	 ((nano-modeline-info-mode-p)            (nano-modeline-info-mode))
+	 ((nano-modeline-calendar-mode-p)        (nano-modeline-calendar-mode))
+	 ((nano-modeline-org-capture-mode-p)     (nano-modeline-org-capture-mode))
+	 ((nano-modeline-org-agenda-mode-p)      (nano-modeline-org-agenda-mode))
+	 ((nano-modeline-org-clock-mode-p)       (nano-modeline-org-clock-mode))
+	 ((nano-modeline-term-mode-p)            (nano-modeline-term-mode))
+	 ((nano-modeline-vterm-mode-p)           (nano-modeline-term-mode))
+	 ((nano-modeline-mu4e-dashboard-mode-p)  (nano-modeline-mu4e-dashboard-mode))
+	 ((nano-modeline-mu4e-main-mode-p)       (nano-modeline-mu4e-main-mode))
+	 ((nano-modeline-mu4e-headers-mode-p)    (nano-modeline-mu4e-headers-mode))
+	 ;; ((nano-modeline-mu4e-view-mode-p)       (nano-modeline-mu4e-view-mode))
+	 ((nano-modeline-text-mode-p)            (nano-modeline-default-mode))
+	 ((nano-modeline-pdf-view-mode-p)        (nano-modeline-pdf-view-mode))
+	 ((nano-modeline-docview-mode-p)         (nano-modeline-docview-mode))
+	 ((nano-modeline-completion-list-mode-p) (nano-modeline-completion-list-mode))
+	 ((nano-modeline-nano-help-mode-p)       (nano-modeline-nano-help-mode))
+	 ((nano-modeline-neotree-mode-p)         (nano-modeline-neotree-mode))
+	 (t                                      (nano-modeline-default-mode)))))))
+    (if (eq nano-modeline-position 'top)
+	(setq-default header-line-format format)
+      (setq-default mode-line-format format))))
+
   ;; This hooks is necessary to register selected window because when
   ;;  a modeline is evaluated, the corresponding window is always selected.
   (add-hook 'post-command-hook #'nano-modeline--update-selected-window)
@@ -1201,6 +1253,12 @@ below or a buffer local variable 'no-mode-line'."
   ;; Run any registered hooks
   (run-hooks 'nano-modeline-mode-hook))
 
+
+(with-eval-after-load 'neotree
+  (defun nano-modeline-neotree-insert-root-entry (node)
+    (neo-buffer--node-list-set nil node)
+    (beginning-of-line))
+  (advice-add #'neo-buffer--insert-root-entry :override #'nano-modeline-neotree-insert-root-entry))
 
 (provide 'nano-modeline)
 ;;; nano-modeline.el ends here
