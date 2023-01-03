@@ -309,6 +309,9 @@ This is useful (aesthetically) if the face of prefix uses a different background
     (nano-help-mode         :mode-p nano-modeline-nano-help-mode-p
                             :format nano-modeline-nano-help-mode
                             :icon "") ;; nerd-font / oct-info
+    (neotree-mode           :mode-p nano-modeline-neotree-mode-p
+			    :format nano-modeline-neotree-mode
+			    :icon "") ;; nerd-font / faicon-book
     (org-agenda-mode        :mode-p nano-modeline-org-agenda-mode-p
                             :format nano-modeline-org-agenda-mode
                             :icon "") ;; nerd-font / oct-calendar
@@ -1021,6 +1024,26 @@ depending on the version of mu4e."
                      (format "%d matches" (length deft-current-files))
                    (format "%d notes" (length deft-all-files)))))
     (nano-modeline-render icon "Search:" filter matches 'read-only)))
+
+;; ---------------------------------------------------------------------
+(with-eval-after-load 'neotree
+  (defun nano-modeline-neotree-insert-root-entry (node)
+    (neo-buffer--node-list-set nil node)
+    (beginning-of-line))
+  (advice-add #'neo-buffer--insert-root-entry :override #'nano-modeline-neotree-insert-root-entry))
+
+(defun nano-modeline-neotree-mode ()
+  (nano-modeline-render (plist-get (cdr (assoc 'neotree-mode nano-modeline-mode-formats)) :icon)
+			;; TODO: Use project.el
+                        (if (fboundp 'projectile-default-project-name)
+                               (projectile-project-name)
+                             (shorten-directory default-directory ((window-width) -5)))
+                        ""
+                        ""
+			""))
+
+(defun nano-modeline-neotree-mode-p ()
+  (derived-mode-p 'neotree-mode))
 
 ;; ---------------------------------------------------------------------
 (defun nano-modeline-prog-mode-p ()
